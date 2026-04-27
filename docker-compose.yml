@@ -1,0 +1,35 @@
+# ============================================================
+#  docker-compose.yml  —  รันบน VM
+#  network "icubeserver-network" ต้องสร้างก่อน:
+#    docker network create icubeserver-network
+# ============================================================
+
+services:
+
+  frontend:
+    image: icubedev/frontendtestcicd:latest
+    container_name: frontend
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    depends_on:
+      - backend
+
+  backend:
+    image: icubedev/backendtestcicd:latest
+    container_name: backend
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+
+# ────────────────────────────────────────────────────────────
+#  ใช้ network ที่มีอยู่แล้วบน VM (external)
+#  containers ทั้งสองจะถูก attach เข้า icubeserver-network
+#  โดยอัตโนมัติเมื่อ `docker compose up`
+# ────────────────────────────────────────────────────────────
+networks:
+  default:
+    name: icubeserver-network
+    external: true
