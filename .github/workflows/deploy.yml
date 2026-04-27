@@ -23,13 +23,15 @@ name: Frontend — Build, Push & Deploy
 
 on:
   push:
-    branches: [main]
+    branches: [Dev]
   workflow_dispatch:
 
 env:
-  IMAGE: icubedev/frontendtestcicd
-  SERVICE: frontend          # ชื่อ service ใน docker-compose.yml
-  CONTAINER: frontend        # ชื่อ container_name ใน docker-compose.yml
+  IMAGE:       icubedev/frontendtestcicd
+  SERVICE:     frontend          # ชื่อ service ใน docker-compose.yml
+  CONTAINER:   frontend          # ชื่อ container_name ใน docker-compose.yml
+  APP_VERSION: v2.2.0            # เปลี่ยน major.minor.patch ตรงนี้
+  ENV_LABEL:   devinternal       # เปลี่ยน label ตาม environment
 
 jobs:
 
@@ -40,10 +42,18 @@ jobs:
 
     outputs:
       image_tag: ${{ github.sha }}
+      version:   ${{ steps.version.outputs.VERSION }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Generate version tag
+        id: version
+        run: |
+          VERSION="${{ env.APP_VERSION }}-${{ env.ENV_LABEL }}-$(date +'%Y%m%dT%H%M%S')"
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "🏷 Version: $VERSION"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -62,7 +72,7 @@ jobs:
           push: true
           tags: |
             ${{ env.IMAGE }}:latest
-            ${{ env.IMAGE }}:${{ github.sha }}
+            ${{ env.IMAGE }}:${{ steps.version.outputs.VERSION }}
           cache-from: type=gha
           cache-to:   type=gha,mode=max
 
@@ -110,4 +120,17 @@ jobs:
               --filter "name=${{ env.CONTAINER }}"
 
             docker image prune -f
-            echo "✅ Frontend deployed — ${{ github.sha }}"
+            echo "✅ Frontend deployed — ${{ needs.build.outputs.version }}"
+
+            echo "────────────────────────────────────"
+            echo "▶ [Frontend] Verify container health"
+            echo "────────────────────────────────────"
+            sleep 10
+            STATUS=$(docker inspect --format='{{.State.Status}}' ${{ env.CONTAINER }})
+            echo "Container status: $STATUS"
+            if [ "$STATUS" != "running" ]; then
+              echo "❌ Container is not running (status: $STATUS)"
+              docker logs ${{ env.CONTAINER }} --tail 30
+              exit 1
+            fi
+            echo "✅ Container is running"
