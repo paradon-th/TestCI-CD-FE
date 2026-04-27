@@ -23,7 +23,7 @@ name: Frontend — Build, Push & Deploy
 
 on:
   push:
-    branches: [Dev]
+    branches: [main]
   workflow_dispatch:
 
 env:
